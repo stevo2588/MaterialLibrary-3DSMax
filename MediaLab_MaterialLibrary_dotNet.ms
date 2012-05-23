@@ -1,3 +1,4 @@
+-- This is a comment
 (
 local materialRoot = "V:\\INET\\MaterialLibrary"
 local bitmapRoot = "V:\\INET\\MaterialLibrary\\Images"
