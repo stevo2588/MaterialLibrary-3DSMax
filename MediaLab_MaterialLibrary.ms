@@ -328,37 +328,7 @@ RCmenu TopMenu (
 	)
 )
 
---loadLibraries()
---createDialog VRay_Arch menu:TopMenu
+loadLibraries()
+createDialog VRay_Arch menu:TopMenu
 
-(
-local DotNetForm = DotNetObject "System.Windows.Forms.Form"
-DotNetForm.Size = (DotNetObject "Drawing.Size" 328 430)
-
-local DotNetMenu = DotNetObject "System.Windows.Forms.MenuStrip"
-local DotNetFileMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "File"
-DotNetMenu.MdiWindowListItem = DotNetFileMenu
-DotNetMenu.Items.Add(DotNetFileMenu)
-	
---local dnComboBox1 = DotNetObject "System.Windows.Forms.ComboBox"
-
-/*local DotNetPicBox = DotNetObject "System.Windows.Forms.PictureBox"
-DotNetPicBox.Size = (DotNetObject "Drawing.Size" 300 300)
-DotNetPicBox.Location = (DotNetObject "Drawing.Point" 6 50)
-DotNetPicBox.image = theImage.FromFile logoPath
-DotNetPicBox.SizeMode = DotNetPicBox.SizeMode.zoom*/
-	
-local DotNetButton = DotNetObject "System.Windows.Forms.Button"
-DotNetButton.Text = "Click Me!"
-DotNetButton.Location = (DotNetObject "Drawing.Point" 15 365)
-	
-local DotNetButton2 = DotNetObject "System.Windows.Forms.Button"
-DotNetButton2.Text = "Or Me!"
-DotNetButton2.Location = (DotNetObject "Drawing.Point" 98 365)
-
-gc()
-DotNetForm.Controls.AddRange #(DotNetMenu, DotNetButton, DotNetButton2)
-gc()
-DotNetForm.Show()
-)
 --)
