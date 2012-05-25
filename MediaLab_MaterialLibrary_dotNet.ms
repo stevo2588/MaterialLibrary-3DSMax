@@ -1,26 +1,38 @@
--- This is a comment  
+ 
 (
-local materialRoot = "V:\\INET\\MaterialLibrary"
-local bitmapRoot = "V:\\INET\\MaterialLibrary\\Images"
---local materialRoot = "C:\\Users\\11697\\Desktop" -- TEMP
---local bitmapRoot = "C:\\Users\\11697\\Desktop\\Images" -- TEMP
-local UVRoot = "V:\\INET\\MaterialLibrary\\UVCoordinates"
+local configFile = (getFilenamePath (getThisScriptFilename()))+"CONFIG"
 local logoPath = "T:\\logos\\CorganMediaLab_inverted.jpg"
 local communicatorFile = (systemTools.getEnvVariable "TEMP")+"\\"+"MaterialLibrary_communicator.tmp"
-
+local materialRoot
+local bitmapRoot
+local UVRoot
+local texMapDir
+local renderFile
+	
 local matLibFilenames
 local categoryNames
 local matLibs
 
 local theImage = dotNetClass "System.Drawing.Image"
 local fileClass = dotNetClass "System.IO.File"
-	
+
 local dnMouse dotNetClass "System.Windows.Input.Mouse"
 local dnCursors dotNetClass "System.Windows.Input.Cursors"
-	
+
 local readyToDrop = false
 
 ---------------------------- Functions ----------------------------------------
+fn readSettings = (
+	config = openFile configFile mode:"rt"
+	texMapDir = (filterString (readLine config) ">")[2] -- read first line
+	renderFile = (filterString (readLine config) ">")[2] -- read second line
+	materialRoot = (filterString (readLine config) ">")[2] -- read third line
+	bitmapRoot = materialRoot+"\\"+"Images"
+	UVRoot = materialRoot+"\\"+"UVCoordinates"
+	
+	flush config; close config
+)
+
 fn loadLibraries = (
 	matLibFilenames = getFiles (materialRoot+"\\*.mat")
 	categoryNames = for i in matLibFilenames collect (getFilenameFile i)
@@ -55,6 +67,7 @@ fn hitTest = (
 
 -------------------------------- DotNet Form Components ------------------------------
 local DotNetForm = DotNetObject "System.Windows.Forms.Form"
+DotNetForm.Text = "Jeffrey"
 DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
 
 local DotNetMenu = DotNetObject "System.Windows.Forms.MenuStrip"
@@ -95,16 +108,11 @@ local DotNetButton = DotNetObject "System.Windows.Forms.Button"
 DotNetButton.Size = (DotNetObject "Drawing.Size" 80 22)
 DotNetButton.Text = "Assign Editor"
 DotNetButton.Location = (DotNetObject "Drawing.Point" 5 385)
-	
+
 local DotNetButton2 = DotNetObject "System.Windows.Forms.Button"
 DotNetButton2.Size = (DotNetObject "Drawing.Size" 98 22)
 DotNetButton2.Text = "Assign Selection"
 DotNetButton2.Location = (DotNetObject "Drawing.Point" 85 385)
-
-local dnButtonUV = DotNetObject "System.Windows.Forms.Button"
-dnButtonUV.Size = (DotNetObject "Drawing.Size" 68 22)
-dnButtonUV.Text = "Apply UVs"
-dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 385)
 
 local dnButtonUV = DotNetObject "System.Windows.Forms.Button"
 dnButtonUV.Size = (DotNetObject "Drawing.Size" 68 22)
@@ -118,14 +126,14 @@ fn changePreview imageFile = (
 	DotNetPicBox.image = theImage.FromFile imageFile
 )
 
------------------------------- Add components to form -------------------------------
-DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV)
-
+------------------------------ Event Handlers ---------------------------------------
 fn formLoad sender arg = (
 	matCategory.DataSource = categoryNames
 	matCategory.SelectedIndex = 0
-	chooseMaterial.Items.AddRange(getMaterials (matCategory.SelectedIndex+1))
-	chooseMaterial.SelectedIndex = 0
+	-- Appears that .net will fire the SelectedIndexChanged event for combobox on form.load, therefore
+	-- having the next 2 lines will cause the menu to be twice as long
+	--chooseMaterial.Items.AddRange(getMaterials (matCategory.SelectedIndex+1))
+	--chooseMaterial.SelectedIndex = 0
 )
 fn formClose sender arg = (
 	DotNetPicBox.image.dispose()
@@ -140,32 +148,77 @@ fn materialSelect sender arg = (
 	changePreview imageToLoad
 )
 fn msDown sender arg = (
-	print "mouse down!"
 	sender.DoDragDrop chooseMaterial.SelectedItem ((dotnetclass "DragDropEffects").Copy)
 )
 fn qryContinueDrag sender arg = (
-	print "query continue drag"
-	
 	local rect = DotNetObject "System.Drawing.Rectangle" DotNetPicBox.Location (DotNetObject "Drawing.Size" DotNetPicBox.Width DotNetPicBox.Height)
 	
 	(dotNetClass "System.Windows.Input.Mouse").SetCursor (dotNetClass "System.Windows.Input.Cursors").Cross
 	if (((dotNetClass "System.Windows.Forms.Control").MouseButtons != (dotNetClass "System.Windows.Forms.MouseButtons").Left) and (not (rect.Contains(DotNetForm.PointToClient((dotNetClass "System.Windows.Forms.Control").MousePosition)))) and (hitTest() != undefined)) do (
 		print "drop it!"
 		arg.Action = (dotNetClass "System.Windows.Forms.DragAction").Cancel
-		(hitTest()).material = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex]
+		(hitTest()).material = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex+1]
 	)
 )
+fn assignEditorClick sender arg = (
+	meditMaterials[activeMeditSlot] = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex+1]
+)
+fn assignSelectionClick sender arg = (
+	if $ != undefined do ($.material = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex+1])
+)
+fn addMaterialClick sender arg = (
+	if (queryBox "You are about to add the selected material in the Material Editor to the current library. Proceed?" title:"Add Material") do (
+		---------------------- add material to temp library so the other max instance can get it -------------
+		thecopypastedir = (systemTools.getEnvVariable "TEMP")
+		thecopypastefile = "materialClipboardLibrary.mat"
+		thecopypastestring = thecopypastedir + "\\" + thecopypastefile
+
+		pastelib = loadTempMaterialLibrary thecopypastestring -- attempt to load library
+		if pastelib == undefined then (pastelib = materialLibrary meditMaterials[activeMeditSlot]) -- if library doesn't exist yet, create it
+		else pastelib[1] = meditMaterials[activeMeditSlot]
+		saveTempMaterialLibrary pastelib thecopypastestring
+		
+		------------------- add material to the correct library -------------------------------
+		correctLibIndex = selectedLibraryIndex
+		append matLibs[correctLibIndex] meditMaterials[activeMeditSlot]
+		saveTempMaterialLibrary matLibs[correctLibIndex] matLibFilenames[correctLibIndex]
+		
+		----------------------- open new instance of max ------------------------------------
+		startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms" -- TODO: Make sure this works!
+		openMaxString = "Start \"StartMax\" "+"\""+(systemTools.getEnvVariable "ADSK_3DSMAX_x64_2012")+"3dsmax.exe\" -q -silent -mip"
+		maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
+		maxFileString = "\"V:\\INET\\_INET_Models_00_Samples\\inetMaterialRenderScene.max\""
+		HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+maxFileString)
+		
+		------------------------ create temp communication file ---------------------------
+		createFile communicatorFile
+		fs = openFile communicatorFile mode:"w+"
+		format "unknown" to:fs
+		flush fs; close fs
+		
+		------------ begin checking temp communicator file for when the render finishes -------------
+		progressThread = dotnetobject "CSharpUtilities.SynchronizingBackgroundWorker"
+		dotNet.addEventHandler progressThread "DoWork" checkAndDisplayProgress
+		progressThread.RunWorkerAsync()
+		
+		----------------- reload libraries ----------------------
+		loadLibraries()
+		VRay_Arch.chooseMaterial.items = (#("-- Choose Material --") + (for i in matLibs[selectedLibraryIndex] collect i.name)) -- Refresh dropdownlist
+	)
+)
+
+------------------------------ Add components to form -------------------------------
+DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV)
 
 dotNet.addEventHandler DotNetForm "load" formLoad
 dotNet.addEventHandler DotNetForm "closed" formClose
 dotNet.addEventHandler matCategory "SelectedIndexChanged" categorySelect
 dotNet.addEventHandler chooseMaterial "SelectedIndexChanged" materialSelect
 dotNet.addEventHandler DotNetPicBox "MouseDown" msDown
---dotNet.addEventHandler DotNetPicBox "MouseUp" msUp
---dotNet.addEventHandler DotNetPicBox "DragLeave" dragLeave
---dotNet.addEventHandler DotNetPicBox "DragLeave" msLeave
---dotNet.addEventHandler DotNetPicBox "DragOver" dragOver
 dotNet.addEventHandler DotNetPicBox "QueryContinueDrag" qryContinueDrag
+dotNet.addEventHandler DotNetButton "Click" assignEditorClick
+dotNet.addEventHandler DotNetButton2 "Click" assignSelectionClick
+dotNet.addEventHandler dnAddMaterial "Click" addMaterialClick
 
 dotNet.setLifeTimeControl DotNetForm #dotNet
 dotNet.setLifeTimeControl DotNetMenu #dotNet
@@ -175,7 +228,13 @@ dotNet.setLifeTimeControl DotNetPicBox #dotNet
 dotNet.setLifeTimeControl DotNetButton #dotNet
 dotNet.setLifeTimeControl DotNetButton2 #dotNet
 
------------------------------- Create form ------------------------------------------
+------------------------------ Main ------------------------------------------
+readSettings()
+print materialRoot
+print bitmapRoot
+print UVRoot
+print renderFile
+print texMapDir
 loadLibraries()
 DotNetForm.Show()
 )

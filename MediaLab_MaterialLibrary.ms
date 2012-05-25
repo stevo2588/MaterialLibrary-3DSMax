@@ -275,7 +275,7 @@ RCmenu TopMenu (
 			saveTempMaterialLibrary matLibs[correctLibIndex] matLibFilenames[correctLibIndex]
 			
 			----------------------- open new instance of max ------------------------------------
-			startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"\\MediaLab_MaterialLibrary_renderScene.ms" -- TODO: Make sure this works!
+			startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms" -- TODO: Make sure this works!
 			openMaxString = "Start \"StartMax\" "+"\""+(systemTools.getEnvVariable "ADSK_3DSMAX_x64_2012")+"3dsmax.exe\" -q -silent -mip"
 			maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
 			maxFileString = "\"V:\\INET\\_INET_Models_00_Samples\\inetMaterialRenderScene.max\""
