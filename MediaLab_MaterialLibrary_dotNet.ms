@@ -39,6 +39,24 @@ fn loadLibraries = (
 	matLibs = for i in matLibFilenames collect (loadTempMaterialLibrary i)
 )
 
+fn checkAndDisplayProgress = (
+	print "background thread!"
+	messageBox "Your material preview is currently being rendered.\nYou will be notified when it is complete." title:"Material Storage"
+	
+	estimatedTime = ""
+	-- while loop to check file
+	while estimatedTime != "Done" do (
+		communicator = openFile communicatorFile mode:"rt"
+		estimatedTime = readLine communicator -- read first line
+		flush communicator; close communicator
+
+		print estimatedTime
+		sleep 3
+	)
+	print "Material stored successfully"
+	messageBox "Your material preview is done rendering and the material has been successfully stored." title:"Material Successfully Stored"
+)
+
 fn getMaterials libIndex = (
 	for i in matLibs[libIndex] collect i.name
 )
@@ -76,11 +94,13 @@ local DotNetSettingsMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem"
 local DotNetHelpMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Help"
 local dnAddMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add Material"
 local dnDelMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Delete Material"
+local dnAddUVs = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add UVs (coming soon)"
 local dnConfigure = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Configure"
 local dnAbout = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "About"
 DotNetMenu.MdiWindowListItem = DotNetFileMenu
 DotNetFileMenu.DropDownItems.Add dnAddMaterial
 DotNetFileMenu.DropDownItems.Add dnDelMaterial
+DotNetFileMenu.DropDownItems.Add dnAddUVs
 DotNetSettingsMenu.DropDownItems.Add dnConfigure
 DotNetHelpMenu.DropDownItems.Add dnAbout
 DotNetMenu.Items.AddRange #(DotNetFileMenu,DotNetSettingsMenu,DotNetHelpMenu)
@@ -119,11 +139,37 @@ dnButtonUV.Size = (DotNetObject "Drawing.Size" 68 22)
 dnButtonUV.Text = "Apply UVs"
 dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 385)
 
+------------------------------- Settings Window -------------------------------------
+local dnSettingsWindow = DotNetObject "System.Windows.Forms.Form"
+dnSettingsWindow.Text = "Configure Settings"
+dnSettingsWindow.Size = (DotNetObject "Drawing.Size" 328 150)
+
+local dnTexMapLabel = (DotNetObject "System.Windows.Forms.Label")
+dnTexMapLabel.Text = "Texture Map Location"
+
+local dnTexMapBox = (DotNetObject "System.Windows.Forms.TextBox")
+dnTexMapBox.Size = (DotNetObject "Drawing.Size" 200 20)
+dnTexMapBox.Location = (DotNetObject "Drawing.Point" 5 10)
+
+local dnRenderFileBox = (DotNetObject "System.Windows.Forms.TextBox")
+dnRenderFileBox.Size = (DotNetObject "Drawing.Size" 200 20)
+dnRenderFileBox.Location = (DotNetObject "Drawing.Point" 5 40)
+
+local dnLibraryRepBox = (DotNetObject "System.Windows.Forms.TextBox")
+dnLibraryRepBox.Size = (DotNetObject "Drawing.Size" 200 20)
+dnLibraryRepBox.Location = (DotNetObject "Drawing.Point" 5 70)
+
 ------------------------------- Form Related Functions ------------------------------
 fn changePreview imageFile = (
 	if (not (doesFileExist imageFile)) do (imageFile = logoPath)
 	if (DotNetPicBox.image != undefined) do (DotNetPicBox.image.dispose())
 	DotNetPicBox.image = theImage.FromFile imageFile
+)
+fn setUVEnable = (
+	-- enable/disable buttons accordingly
+	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
+	if (not (doesFileExist UVFile)) then (dnButtonUV.enabled = False)
+	else (dnButtonUV.enabled = True)
 )
 
 ------------------------------ Event Handlers ---------------------------------------
@@ -142,10 +188,14 @@ fn categorySelect sender arg = (
 	chooseMaterial.Items.Clear()
 	chooseMaterial.Items.AddRange(getMaterials (matCategory.SelectedIndex+1))
 	chooseMaterial.SelectedIndex = 0
+		
+	setUVEnable()
 )
 fn materialSelect sender arg = (
 	imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
 	changePreview imageToLoad
+	
+	setUVEnable()
 )
 fn msDown sender arg = (
 	sender.DoDragDrop chooseMaterial.SelectedItem ((dotnetclass "DragDropEffects").Copy)
@@ -155,7 +205,6 @@ fn qryContinueDrag sender arg = (
 	
 	(dotNetClass "System.Windows.Input.Mouse").SetCursor (dotNetClass "System.Windows.Input.Cursors").Cross
 	if (((dotNetClass "System.Windows.Forms.Control").MouseButtons != (dotNetClass "System.Windows.Forms.MouseButtons").Left) and (not (rect.Contains(DotNetForm.PointToClient((dotNetClass "System.Windows.Forms.Control").MousePosition)))) and (hitTest() != undefined)) do (
-		print "drop it!"
 		arg.Action = (dotNetClass "System.Windows.Forms.DragAction").Cancel
 		(hitTest()).material = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex+1]
 	)
@@ -165,6 +214,68 @@ fn assignEditorClick sender arg = (
 )
 fn assignSelectionClick sender arg = (
 	if $ != undefined do ($.material = matLibs[matCategory.SelectedIndex+1][chooseMaterial.SelectedIndex+1])
+)
+fn applyUVsClick sender arg = (
+	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
+	UVInfo = openFile UVFile mode:"rt"
+	
+	modifString = ""
+	
+	do (
+		currentLine = readLine UVInfo
+		print currentLine
+		
+		if (currentLine[1] == "#") then (
+			modifString = substring currentLine 2 -1
+			case modifString of (
+				"VRayDisplacementMod": (addModifier $ (VRayDisplacementMod()))
+				"UVWMap": (addModifier $ (UVWMap()))
+			)
+		)
+		else if (currentLine[1] == "\t") then (
+			-- set modifier parameter
+			parameter = filterString (substring currentLine 2 -1) ">"
+			case modifString of (
+				"UVWMap": (
+					case parameter[1] of (
+						"Type": (
+							$.modifiers[1].maptype = case parameter[2] of (
+								"Planar": 0
+								"Cylindrical": 1
+								"Spherical": 2
+								"Shrink Wrap": 3
+								"Box": 4
+								"Face": 5
+								"XYZ to UVW": 6
+							)
+						)
+						"Length": ($.modifiers[1].length = (Execute parameter[2]))
+						"Width": ($.modifiers[1].width = (Execute parameter[2]))
+						"MapChan": ($.modifiers[1].mapChannel = (Execute parameter[2]))
+					)
+				)
+				"VRayDisplacementMod": (
+					case parameter[1] of (
+						"Type": (
+							$.modifiers[1].type = case parameter[2] of (
+								"2D mapping (landscape)": 0
+								"3D mapping": 1
+								"Subdivision": 2
+							)
+						)
+						"TexChan": ($.modifiers[1].texmapChannel = (Execute parameter[2]))
+						"TexMap": (
+							theMap = BitmapTexture()
+							theMap.filename = parameter[2]
+							$.modifiers[1].texmap = theMap
+						)
+					)
+				)
+			)
+		)
+	) while (not (eof UVInfo))
+		
+	flush UVInfo; close UVInfo
 )
 fn addMaterialClick sender arg = (
 	if (queryBox "You are about to add the selected material in the Material Editor to the current library. Proceed?" title:"Add Material") do (
@@ -179,16 +290,14 @@ fn addMaterialClick sender arg = (
 		saveTempMaterialLibrary pastelib thecopypastestring
 		
 		------------------- add material to the correct library -------------------------------
-		correctLibIndex = selectedLibraryIndex
-		append matLibs[correctLibIndex] meditMaterials[activeMeditSlot]
-		saveTempMaterialLibrary matLibs[correctLibIndex] matLibFilenames[correctLibIndex]
+		append matLibs[matCategory.SelectedIndex+1] meditMaterials[activeMeditSlot]
+		saveTempMaterialLibrary matLibs[matCategory.SelectedIndex+1] matLibFilenames[matCategory.SelectedIndex+1]
 		
 		----------------------- open new instance of max ------------------------------------
-		startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms" -- TODO: Make sure this works!
-		openMaxString = "Start \"StartMax\" "+"\""+(systemTools.getEnvVariable "ADSK_3DSMAX_x64_2012")+"3dsmax.exe\" -q -silent -mip"
+		startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms"
+		openMaxString = "Start \"StartMax\" "+"\""+(getDir #maxRoot)+"3dsmax.exe\" -q -silent -mip"
 		maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
-		maxFileString = "\"V:\\INET\\_INET_Models_00_Samples\\inetMaterialRenderScene.max\""
-		HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+maxFileString)
+		HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+"\""+renderFile+"\"")
 		
 		------------------------ create temp communication file ---------------------------
 		createFile communicatorFile
@@ -203,13 +312,38 @@ fn addMaterialClick sender arg = (
 		
 		----------------- reload libraries ----------------------
 		loadLibraries()
-		VRay_Arch.chooseMaterial.items = (#("-- Choose Material --") + (for i in matLibs[selectedLibraryIndex] collect i.name)) -- Refresh dropdownlist
+		categorySelect undefined undefined -- reload chooseMaterial dropdown
 	)
 )
+fn deleteMaterialClick sender arg = (
+	if (queryBox "This will delete the current material.  Are you sure you want to do this?" title:"Delete Material") do (
+		changePreview logoPath
 
------------------------------- Add components to form -------------------------------
+		fileClass.Delete (bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg")
+		
+		deleteItem matLibs[matCategory.SelectedIndex+1] (chooseMaterial.SelectedIndex+1)
+		saveTempMaterialLibrary matLibs[matCategory.SelectedIndex+1] matLibFilenames[matCategory.SelectedIndex+1]
+		
+		loadLibraries()
+		categorySelect undefined undefined -- reload chooseMaterial dropdown
+		
+		-- Reload images
+		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+		changePreview imageToLoad
+	)
+)
+fn aboutClick sender arg = (
+	(dotNetClass "System.Windows.Forms.MessageBox").Show("\"Jeffrey\", the Material Library for use by Corgan MediaLab")
+)
+fn configClick sender arg = (
+	dnSettingsWindow.ShowDialog DotNetForm
+)
+
+------------------------------ Add components to forms -------------------------------
 DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV)
+dnSettingsWindow.Controls.AddRange #(dnTexMapLabel, dnTexMapBox, dnRenderFileBox, dnLibraryRepBox)
 
+---------------------------- Register event handler functions -----------------------
 dotNet.addEventHandler DotNetForm "load" formLoad
 dotNet.addEventHandler DotNetForm "closed" formClose
 dotNet.addEventHandler matCategory "SelectedIndexChanged" categorySelect
@@ -219,6 +353,10 @@ dotNet.addEventHandler DotNetPicBox "QueryContinueDrag" qryContinueDrag
 dotNet.addEventHandler DotNetButton "Click" assignEditorClick
 dotNet.addEventHandler DotNetButton2 "Click" assignSelectionClick
 dotNet.addEventHandler dnAddMaterial "Click" addMaterialClick
+dotNet.addEventHandler dnDelMaterial "Click" deleteMaterialClick
+dotNet.addEventHandler dnConfigure "Click" configClick
+dotNet.addEventHandler dnAbout "Click" aboutClick
+dotNet.addEventHandler dnButtonUV "Click" applyUVsClick
 
 dotNet.setLifeTimeControl DotNetForm #dotNet
 dotNet.setLifeTimeControl DotNetMenu #dotNet
