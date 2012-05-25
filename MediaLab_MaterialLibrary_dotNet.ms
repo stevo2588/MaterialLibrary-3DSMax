@@ -59,9 +59,19 @@ DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
 
 local DotNetMenu = DotNetObject "System.Windows.Forms.MenuStrip"
 local DotNetFileMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "File"
+local DotNetSettingsMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Settings"
+local DotNetHelpMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Help"
+local dnAddMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add Material"
+local dnDelMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Delete Material"
+local dnConfigure = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Configure"
+local dnAbout = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "About"
 DotNetMenu.MdiWindowListItem = DotNetFileMenu
-DotNetMenu.Items.Add(DotNetFileMenu)
-	
+DotNetFileMenu.DropDownItems.Add dnAddMaterial
+DotNetFileMenu.DropDownItems.Add dnDelMaterial
+DotNetSettingsMenu.DropDownItems.Add dnConfigure
+DotNetHelpMenu.DropDownItems.Add dnAbout
+DotNetMenu.Items.AddRange #(DotNetFileMenu,DotNetSettingsMenu,DotNetHelpMenu)
+
 local matCategory = DotNetObject "System.Windows.Forms.ComboBox"
 matCategory.Location = (DotNetObject "Drawing.Point" 6 28)
 matCategory.DropDownWidth = 300
@@ -138,7 +148,7 @@ fn qryContinueDrag sender arg = (
 	
 	local rect = DotNetObject "System.Drawing.Rectangle" DotNetPicBox.Location (DotNetObject "Drawing.Size" DotNetPicBox.Width DotNetPicBox.Height)
 	
-	(dotNetClass "System.Windows.Input.Mouse").SetCursor (dotNetClass "System.Windows.Input.Cursors").Arrow
+	(dotNetClass "System.Windows.Input.Mouse").SetCursor (dotNetClass "System.Windows.Input.Cursors").Cross
 	if (((dotNetClass "System.Windows.Forms.Control").MouseButtons != (dotNetClass "System.Windows.Forms.MouseButtons").Left) and (not (rect.Contains(DotNetForm.PointToClient((dotNetClass "System.Windows.Forms.Control").MousePosition)))) and (hitTest() != undefined)) do (
 		print "drop it!"
 		arg.Action = (dotNetClass "System.Windows.Forms.DragAction").Cancel
