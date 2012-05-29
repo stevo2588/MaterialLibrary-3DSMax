@@ -11,6 +11,7 @@ local renderFile
 	
 local matLibFilenames
 local categoryNames
+local materialNames
 local matLibs
 
 local theImage = dotNetClass "System.Drawing.Image"
@@ -35,7 +36,6 @@ fn readSettings = (
 
 fn loadLibraries = (
 	matLibFilenames = getFiles (materialRoot+"\\*.mat")
-	categoryNames = for i in matLibFilenames collect (getFilenameFile i)
 	matLibs = for i in matLibFilenames collect (loadTempMaterialLibrary i)
 )
 
@@ -56,10 +56,12 @@ fn checkAndDisplayProgress = (
 	print "Material stored successfully"
 	messageBox "Your material preview is done rendering and the material has been successfully stored." title:"Material Successfully Stored"
 )
-
-fn getMaterials libIndex = (
-	for i in matLibs[libIndex] collect i.name
-)
+/*
+fn getMaterialNames libIndex = (
+	if (libIndex != undefined) or (matLibs != undefined) do (
+		for i in matLibs[libIndex] collect i.name
+	)
+)*/
 -- hitTest function by MarcoBrunetta from cgsociety.org
 -- Returns the object at the mouse position in the viewport
 fn hitTest = (
@@ -87,6 +89,7 @@ fn hitTest = (
 local DotNetForm = DotNetObject "System.Windows.Forms.Form"
 DotNetForm.Text = "Jeffrey"
 DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
+DotNetForm.TopMost = true
 
 local DotNetMenu = DotNetObject "System.Windows.Forms.MenuStrip"
 local DotNetFileMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "File"
@@ -142,59 +145,136 @@ dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 385)
 ------------------------------- Settings Window -------------------------------------
 local dnSettingsWindow = DotNetObject "System.Windows.Forms.Form"
 dnSettingsWindow.Text = "Configure Settings"
-dnSettingsWindow.Size = (DotNetObject "Drawing.Size" 328 150)
+dnSettingsWindow.Size = (DotNetObject "Drawing.Size" 460 160)
 
 local dnTexMapLabel = (DotNetObject "System.Windows.Forms.Label")
-dnTexMapLabel.Text = "Texture Map Location"
+dnTexMapLabel.Text = "Texture Map Path"
+dnTexMapLabel.Size = (DotNetObject "Drawing.Size" 95 18)
+dnTexMapLabel.Location = (DotNetObject "Drawing.Point" 5 12)
 
 local dnTexMapBox = (DotNetObject "System.Windows.Forms.TextBox")
-dnTexMapBox.Size = (DotNetObject "Drawing.Size" 200 20)
-dnTexMapBox.Location = (DotNetObject "Drawing.Point" 5 10)
+dnTexMapBox.Size = (DotNetObject "Drawing.Size" 275 20)
+dnTexMapBox.Location = (DotNetObject "Drawing.Point" 100 10)
+
+local dnBrowseTex = DotNetObject "System.Windows.Forms.Button"
+dnBrowseTex.Text = "Browse"
+dnBrowseTex.Size = (DotNetObject "Drawing.Size" 55 22)
+dnBrowseTex.Location = (DotNetObject "Drawing.Point" 380 8)
+
+local dnRenderFileLabel = (DotNetObject "System.Windows.Forms.Label")
+dnRenderFileLabel.Text = "Render File"
+dnRenderFileLabel.Size = (DotNetObject "Drawing.Size" 95 18)
+dnRenderFileLabel.Location = (DotNetObject "Drawing.Point" 5 42)
 
 local dnRenderFileBox = (DotNetObject "System.Windows.Forms.TextBox")
-dnRenderFileBox.Size = (DotNetObject "Drawing.Size" 200 20)
-dnRenderFileBox.Location = (DotNetObject "Drawing.Point" 5 40)
+dnRenderFileBox.Size = (DotNetObject "Drawing.Size" 275 20)
+dnRenderFileBox.Location = (DotNetObject "Drawing.Point" 100 40)
+
+local dnBrowseRender = DotNetObject "System.Windows.Forms.Button"
+dnBrowseRender.Text = "Browse"
+dnBrowseRender.Size = (DotNetObject "Drawing.Size" 55 22)
+dnBrowseRender.Location = (DotNetObject "Drawing.Point" 380 38)
+
+local dnLibraryRepLabel = (DotNetObject "System.Windows.Forms.Label")
+dnLibraryRepLabel.Text = "Library Path"
+dnLibraryRepLabel.Size = (DotNetObject "Drawing.Size" 95 18)
+dnLibraryRepLabel.Location = (DotNetObject "Drawing.Point" 5 72)
 
 local dnLibraryRepBox = (DotNetObject "System.Windows.Forms.TextBox")
-dnLibraryRepBox.Size = (DotNetObject "Drawing.Size" 200 20)
-dnLibraryRepBox.Location = (DotNetObject "Drawing.Point" 5 70)
+dnLibraryRepBox.Size = (DotNetObject "Drawing.Size" 275 20)
+dnLibraryRepBox.Location = (DotNetObject "Drawing.Point" 100 70)
+
+local dnBrowseLibrary = DotNetObject "System.Windows.Forms.Button"
+dnBrowseLibrary.Text = "Browse"
+dnBrowseLibrary.Size = (DotNetObject "Drawing.Size" 55 22)
+dnBrowseLibrary.Location = (DotNetObject "Drawing.Point" 380 68)
+
+local dnApplySettings = DotNetObject "System.Windows.Forms.Button"
+dnApplySettings.Text = "Apply"
+dnApplySettings.Size = (DotNetObject "Drawing.Size" 55 22)
+dnApplySettings.Location = (DotNetObject "Drawing.Point" 100 95)
+
+local dnCancelSettings = DotNetObject "System.Windows.Forms.Button"
+dnCancelSettings.Text = "Cancel"
+dnCancelSettings.Size = (DotNetObject "Drawing.Size" 55 22)
+dnCancelSettings.Location = (DotNetObject "Drawing.Point" 160 95)
 
 ------------------------------- Form Related Functions ------------------------------
+fn updateCategoryDropdown = (
+	if (matLibFilenames != undefined) and (matLibs != undefined) then (
+		categoryNames = for i in matLibFilenames collect (getFilenameFile i)
+	)
+	else (
+		categoryNames = #("-----------")
+	)
+	matCategory.Items.Clear()
+	matCategory.Items.AddRange(categoryNames)
+	matCategory.SelectedIndex = 0
+)
+fn updateMaterialDropdown = (
+	if (matLibFilenames != undefined) and (matLibs != undefined) then (
+		materialNames = for i in matLibs[matCategory.SelectedIndex+1] collect i.name
+	)
+	else (
+		materialNames = #("-----------")
+	)
+	chooseMaterial.Items.Clear()
+	chooseMaterial.Items.AddRange(materialNames)
+	chooseMaterial.SelectedIndex = 0
+	print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
+)
+fn updateDropdowns = (
+	updateCategoryDropdown()
+	updateMaterialDropdown()
+)
 fn changePreview imageFile = (
 	if (not (doesFileExist imageFile)) do (imageFile = logoPath)
 	if (DotNetPicBox.image != undefined) do (DotNetPicBox.image.dispose())
 	DotNetPicBox.image = theImage.FromFile imageFile
 )
 fn setUVEnable = (
+	print "uvenable called"
 	-- enable/disable buttons accordingly
 	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
 	if (not (doesFileExist UVFile)) then (dnButtonUV.enabled = False)
 	else (dnButtonUV.enabled = True)
 )
+fn setAssignEnable = (
+	if $ == undefined then (DotNetButton2.enabled = False)
+	else (DotNetButton2.enabled = True)
+)
 
 ------------------------------ Event Handlers ---------------------------------------
 fn formLoad sender arg = (
-	matCategory.DataSource = categoryNames
-	matCategory.SelectedIndex = 0
+	readSettings()
+	loadLibraries()
+	updateDropdowns()
+	
+	dnTexMapBox.Text = texMapDir
+	dnRenderFileBox.Text = renderFile
+	dnLibraryRepBox.Text = materialRoot
 	-- Appears that .net will fire the SelectedIndexChanged event for combobox on form.load, therefore
 	-- having the next 2 lines will cause the menu to be twice as long
-	--chooseMaterial.Items.AddRange(getMaterials (matCategory.SelectedIndex+1))
+	--chooseMaterial.Items.AddRange(materialNames)
 	--chooseMaterial.SelectedIndex = 0
+	setAssignEnable()
+)
+fn formShown sender arg = (
+	print "shown!"
 )
 fn formClose sender arg = (
 	DotNetPicBox.image.dispose()
+	callbacks.removeScripts id:#mlmlSelection
 )
 fn categorySelect sender arg = (
-	chooseMaterial.Items.Clear()
-	chooseMaterial.Items.AddRange(getMaterials (matCategory.SelectedIndex+1))
-	chooseMaterial.SelectedIndex = 0
-		
+	updateMaterialDropdown
+	print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
 	setUVEnable()
 )
 fn materialSelect sender arg = (
 	imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
 	changePreview imageToLoad
-	
+	--print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
 	setUVEnable()
 )
 fn msDown sender arg = (
@@ -338,13 +418,32 @@ fn aboutClick sender arg = (
 fn configClick sender arg = (
 	dnSettingsWindow.ShowDialog DotNetForm
 )
+fn applySettingsClick sender arg = (
+	
+	createFile configFile
+	fs = openFile configFile mode:"w+"
+	format ("TextureMapDir>"+dnTexMapBox.Text+"\n") to:fs
+	format ("MaterialRenderFile>"+dnRenderFileBox.Text+"\n") to:fs
+	format ("MaterialLibraryRepos>"+dnLibraryRepBox.Text) to:fs
+	flush fs; close fs
+	
+	readSettings()
+	loadLibraries()
+	updateDropdowns()
+)
+-- this function must be global so it can be registered as a callback
+global selectionChanged
+fn selectionChanged = (
+	setAssignEnable()
+)
 
 ------------------------------ Add components to forms -------------------------------
 DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV)
-dnSettingsWindow.Controls.AddRange #(dnTexMapLabel, dnTexMapBox, dnRenderFileBox, dnLibraryRepBox)
+dnSettingsWindow.Controls.AddRange #(dnTexMapLabel, dnTexMapBox, dnBrowseTex, dnRenderFileLabel, dnRenderFileBox, dnBrowseRender, dnLibraryRepLabel, dnLibraryRepBox, dnBrowseLibrary, dnApplySettings, dnCancelSettings)
 
 ---------------------------- Register event handler functions -----------------------
 dotNet.addEventHandler DotNetForm "load" formLoad
+dotNet.addEventHandler DotNetForm "Shown" formShown
 dotNet.addEventHandler DotNetForm "closed" formClose
 dotNet.addEventHandler matCategory "SelectedIndexChanged" categorySelect
 dotNet.addEventHandler chooseMaterial "SelectedIndexChanged" materialSelect
@@ -358,6 +457,12 @@ dotNet.addEventHandler dnConfigure "Click" configClick
 dotNet.addEventHandler dnAbout "Click" aboutClick
 dotNet.addEventHandler dnButtonUV "Click" applyUVsClick
 
+dotNet.addEventHandler dnApplySettings "Click" applySettingsClick
+
+callbacks.removeScripts id:#mlmlSelection
+-- make sure the callback function is global!
+callbacks.addScript #selectionSetChanged "selectionChanged()" id:#mlmlSelection
+
 dotNet.setLifeTimeControl DotNetForm #dotNet
 dotNet.setLifeTimeControl DotNetMenu #dotNet
 dotNet.setLifeTimeControl matCategory #dotNet
@@ -367,12 +472,6 @@ dotNet.setLifeTimeControl DotNetButton #dotNet
 dotNet.setLifeTimeControl DotNetButton2 #dotNet
 
 ------------------------------ Main ------------------------------------------
-readSettings()
-print materialRoot
-print bitmapRoot
-print UVRoot
-print renderFile
-print texMapDir
-loadLibraries()
+
 DotNetForm.Show()
 )
