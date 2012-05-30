@@ -1,4 +1,13 @@
- 
+/*
+	Corgan MediaLab Material Library v1.2
+	Developed by Stephen Aldriedge
+	
+	Todo:
+	-When user clicks "Add Material" check and make sure all texture maps (if any) are located in "V:\Materials2"
+	-Make macro
+	-Add UV option
+	-Option to choose another render file besides the default
+*/
 (
 local configFile = (getFilenamePath (getThisScriptFilename()))+"CONFIG"
 local logoPath = "T:\\logos\\CorganMediaLab_inverted.jpg"
@@ -22,8 +31,11 @@ local dnCursors dotNetClass "System.Windows.Input.Cursors"
 
 local readyToDrop = false
 
+local initializing = true
+
 ---------------------------- Functions ----------------------------------------
 fn readSettings = (
+	print "read settings"
 	config = openFile configFile mode:"rt"
 	texMapDir = (filterString (readLine config) ">")[2] -- read first line
 	renderFile = (filterString (readLine config) ">")[2] -- read second line
@@ -35,6 +47,7 @@ fn readSettings = (
 )
 
 fn loadLibraries = (
+	print "loadLibraries"
 	matLibFilenames = getFiles (materialRoot+"\\*.mat")
 	matLibs = for i in matLibFilenames collect (loadTempMaterialLibrary i)
 )
@@ -56,12 +69,7 @@ fn checkAndDisplayProgress = (
 	print "Material stored successfully"
 	messageBox "Your material preview is done rendering and the material has been successfully stored." title:"Material Successfully Stored"
 )
-/*
-fn getMaterialNames libIndex = (
-	if (libIndex != undefined) or (matLibs != undefined) do (
-		for i in matLibs[libIndex] collect i.name
-	)
-)*/
+
 -- hitTest function by MarcoBrunetta from cgsociety.org
 -- Returns the object at the mouse position in the viewport
 fn hitTest = (
@@ -114,7 +122,7 @@ matCategory.DropDownWidth = 300
 matCategory.Size = (DotNetObject "Drawing.Size" 300 21)
 matCategory.DropDownStyle = (dotNetClass "System.Windows.Forms.ComboBoxStyle").DropDownList
 
-local chooseMaterial = DotNetObject "System.Windows.Forms.ComboBox"
+global chooseMaterial = DotNetObject "System.Windows.Forms.ComboBox"
 chooseMaterial.Location = (DotNetObject "Drawing.Point" 6 53)
 chooseMaterial.DropDownWidth = 300
 chooseMaterial.Size = (DotNetObject "Drawing.Size" 300 21)
@@ -201,6 +209,7 @@ dnCancelSettings.Location = (DotNetObject "Drawing.Point" 160 95)
 
 ------------------------------- Form Related Functions ------------------------------
 fn updateCategoryDropdown = (
+	print "updateCategoryDropdown"
 	if (matLibFilenames != undefined) and (matLibs != undefined) then (
 		categoryNames = for i in matLibFilenames collect (getFilenameFile i)
 	)
@@ -212,7 +221,8 @@ fn updateCategoryDropdown = (
 	matCategory.SelectedIndex = 0
 )
 fn updateMaterialDropdown = (
-	if (matLibFilenames != undefined) and (matLibs != undefined) then (
+	print "updateMaterialDropdown"
+	if matLibs != undefined then (
 		materialNames = for i in matLibs[matCategory.SelectedIndex+1] collect i.name
 	)
 	else (
@@ -221,11 +231,7 @@ fn updateMaterialDropdown = (
 	chooseMaterial.Items.Clear()
 	chooseMaterial.Items.AddRange(materialNames)
 	chooseMaterial.SelectedIndex = 0
-	print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
-)
-fn updateDropdowns = (
-	updateCategoryDropdown()
-	updateMaterialDropdown()
+	print materialNames
 )
 fn changePreview imageFile = (
 	if (not (doesFileExist imageFile)) do (imageFile = logoPath)
@@ -240,6 +246,7 @@ fn setUVEnable = (
 	else (dnButtonUV.enabled = True)
 )
 fn setAssignEnable = (
+	print "setAssignEnable"
 	if $ == undefined then (DotNetButton2.enabled = False)
 	else (DotNetButton2.enabled = True)
 )
@@ -248,16 +255,21 @@ fn setAssignEnable = (
 fn formLoad sender arg = (
 	readSettings()
 	loadLibraries()
-	updateDropdowns()
+	updateCategoryDropdown()
+	updateMaterialDropdown()
 	
+	-- Set text in settings window
 	dnTexMapBox.Text = texMapDir
 	dnRenderFileBox.Text = renderFile
 	dnLibraryRepBox.Text = materialRoot
-	-- Appears that .net will fire the SelectedIndexChanged event for combobox on form.load, therefore
-	-- having the next 2 lines will cause the menu to be twice as long
-	--chooseMaterial.Items.AddRange(materialNames)
-	--chooseMaterial.SelectedIndex = 0
+
+	-- load initial image
+	imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+	changePreview imageToLoad
+	
+	setUVEnable()
 	setAssignEnable()
+	initializing = false
 )
 fn formShown sender arg = (
 	print "shown!"
@@ -267,15 +279,21 @@ fn formClose sender arg = (
 	callbacks.removeScripts id:#mlmlSelection
 )
 fn categorySelect sender arg = (
-	updateMaterialDropdown
-	print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
-	setUVEnable()
+	if not initializing do (
+		print "categorySelect"
+		updateMaterialDropdown()
+		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+		changePreview imageToLoad
+		setUVEnable()
+	)
 )
 fn materialSelect sender arg = (
-	imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
-	changePreview imageToLoad
-	--print ("chooseMaterial = "+(chooseMaterial.SelectedItem))
-	setUVEnable()
+	if not initializing do (
+		print "materialSelect"
+		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+		changePreview imageToLoad
+		setUVEnable()
+	)
 )
 fn msDown sender arg = (
 	sender.DoDragDrop chooseMaterial.SelectedItem ((dotnetclass "DragDropEffects").Copy)
@@ -392,7 +410,8 @@ fn addMaterialClick sender arg = (
 		
 		----------------- reload libraries ----------------------
 		loadLibraries()
-		categorySelect undefined undefined -- reload chooseMaterial dropdown
+		--categorySelect undefined undefined -- reload chooseMaterial dropdown
+		updateMaterialDropdown()
 	)
 )
 fn deleteMaterialClick sender arg = (
@@ -429,7 +448,8 @@ fn applySettingsClick sender arg = (
 	
 	readSettings()
 	loadLibraries()
-	updateDropdowns()
+	updateCategoryDropdown()
+	updateMaterialDropdown()
 )
 -- this function must be global so it can be registered as a callback
 global selectionChanged
