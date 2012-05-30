@@ -100,6 +100,18 @@ fn hitTest = (
 	hitObject 
 )
 
+fn getAllSubMtls mtl = (
+	allSubMtls = #()
+	--getNumSubMtls <material> 
+	--getSubMtl <material> <index> 
+)
+
+fn getAllSubTexMaps mtl = (
+	allSubTexMaps = #()
+	--getNumSubTexmaps (<material> | <texture>)
+	--getSubTexmap (<material> | <texture>) <index> 
+)
+
 -------------------------------- DotNet Form Components ------------------------------
 local DotNetForm = DotNetObject "System.Windows.Forms.Form"
 DotNetForm.Text = "Jeffrey"
@@ -396,6 +408,7 @@ fn applyUVsClick sender arg = (
 )
 fn addMaterialClick sender arg = (
 	if (queryBox "You are about to add the selected material in the Material Editor to the current library. Proceed?" title:"Add Material") do (
+		if (texMapDir == "") do ()
 		---------------------- add material to temp library so the other max instance can get it -------------
 		thecopypastedir = (systemTools.getEnvVariable "TEMP")
 		thecopypastefile = "materialClipboardLibrary.mat"
