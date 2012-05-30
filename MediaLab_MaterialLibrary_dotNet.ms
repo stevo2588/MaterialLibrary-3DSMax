@@ -49,7 +49,14 @@ fn readSettings = (
 fn loadLibraries = (
 	print "loadLibraries"
 	matLibFilenames = getFiles (materialRoot+"\\*.mat")
-	matLibs = for i in matLibFilenames collect (loadTempMaterialLibrary i)
+	if matLibFilenames.count == 0 then (
+		matLibs = #()
+		false
+	)
+	else (
+		matLibs = for i in matLibFilenames collect (loadTempMaterialLibrary i)
+		true
+	)
 )
 
 fn checkAndDisplayProgress = (
@@ -210,27 +217,31 @@ dnCancelSettings.Location = (DotNetObject "Drawing.Point" 160 95)
 ------------------------------- Form Related Functions ------------------------------
 fn updateCategoryDropdown = (
 	print "updateCategoryDropdown"
-	if (matLibFilenames != undefined) and (matLibs != undefined) then (
+	print matLibs.count
+	if (matLibFilenames != undefined) and (matLibs != undefined) and (matLibs.count > 0) then (
 		categoryNames = for i in matLibFilenames collect (getFilenameFile i)
+		matCategory.Items.Clear()
+		matCategory.Items.AddRange(categoryNames)
+		matCategory.SelectedIndex = 0
 	)
 	else (
-		categoryNames = #("-----------")
+		--categoryNames = #("-----------")
+		matCategory.Items.Clear()
 	)
-	matCategory.Items.Clear()
-	matCategory.Items.AddRange(categoryNames)
-	matCategory.SelectedIndex = 0
+	
 )
 fn updateMaterialDropdown = (
 	print "updateMaterialDropdown"
-	if matLibs != undefined then (
+	if (matLibs != undefined) and (matLibs.count > 0) then (
 		materialNames = for i in matLibs[matCategory.SelectedIndex+1] collect i.name
+		chooseMaterial.Items.Clear()
+		chooseMaterial.Items.AddRange(materialNames)
+		chooseMaterial.SelectedIndex = 0
 	)
 	else (
-		materialNames = #("-----------")
+		--materialNames = #("-----------")
+		chooseMaterial.Items.Clear()
 	)
-	chooseMaterial.Items.Clear()
-	chooseMaterial.Items.AddRange(materialNames)
-	chooseMaterial.SelectedIndex = 0
 	print materialNames
 )
 fn changePreview imageFile = (
@@ -254,21 +265,29 @@ fn setAssignEnable = (
 ------------------------------ Event Handlers ---------------------------------------
 fn formLoad sender arg = (
 	readSettings()
-	loadLibraries()
-	updateCategoryDropdown()
-	updateMaterialDropdown()
-	
 	-- Set text in settings window
 	dnTexMapBox.Text = texMapDir
 	dnRenderFileBox.Text = renderFile
 	dnLibraryRepBox.Text = materialRoot
-
-	-- load initial image
-	imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
-	changePreview imageToLoad
-	
-	setUVEnable()
-	setAssignEnable()
+	if (loadLibraries()) then (
+		updateCategoryDropdown()
+		updateMaterialDropdown()
+		
+		print "here"
+		-- load initial image
+		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+		changePreview imageToLoad
+		
+		setUVEnable()
+		setAssignEnable()
+	)
+	else ( -- disable controls if no libraries were loaded
+		DotNetButton.Enabled = false
+		DotNetButton2.Enabled = false
+		dnButtonUV.Enabled = false
+		DotNetPicBox.Enabled = false
+		DotNetFileMenu.Enabled = false
+	)
 	initializing = false
 )
 fn formShown sender arg = (
@@ -437,8 +456,36 @@ fn aboutClick sender arg = (
 fn configClick sender arg = (
 	dnSettingsWindow.ShowDialog DotNetForm
 )
+fn browseTexClick sender arg = (
+	dnFolderBrowse = DotNetObject "System.Windows.Forms.FolderBrowserDialog"
+	dnFolderBrowse.Description = "Choose texture maps folder"
+	result = dnFolderBrowse.ShowDialog()
+	if result == result.OK do (
+		dnTexMapBox.Text = dnFolderBrowse.SelectedPath
+		print dnTexMapBox.Text
+	)
+)
+fn browseRenderClick sender arg = (
+	dnFileBrowse = DotNetObject "System.Windows.Forms.OpenFileDialog"
+	dnFileBrowse.Title = "Choose Render file"
+	dnFileBrowse.DefaultExt = "max"
+	dnFileBrowse.Filter = "max files (*.max)|*.max";
+	result = dnFileBrowse.ShowDialog()
+	if result == result.OK do (
+		dnRenderFileBox.Text = dnFileBrowse.FileName
+		print dnRenderFileBox.Text
+	)
+)
+fn browseLibraryClick sender arg = (
+	dnFolderBrowse = DotNetObject "System.Windows.Forms.FolderBrowserDialog"
+	dnFolderBrowse.Description = "Choose Library folder"
+	result = dnFolderBrowse.ShowDialog()
+	if result == result.OK do (
+		dnLibraryRepBox.Text = dnFolderBrowse.SelectedPath
+		print dnLibraryRepBox.Text
+	)
+)
 fn applySettingsClick sender arg = (
-	
 	createFile configFile
 	fs = openFile configFile mode:"w+"
 	format ("TextureMapDir>"+dnTexMapBox.Text+"\n") to:fs
@@ -447,9 +494,44 @@ fn applySettingsClick sender arg = (
 	flush fs; close fs
 	
 	readSettings()
-	loadLibraries()
-	updateCategoryDropdown()
-	updateMaterialDropdown()
+	if (loadLibraries()) then (
+		updateCategoryDropdown()
+		updateMaterialDropdown()
+		
+		print "here"
+		-- load initial image
+		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
+		changePreview imageToLoad
+		
+		DotNetButton.Enabled = true
+		DotNetPicBox.Enabled = true
+		DotNetFileMenu.Enabled = true
+		setUVEnable()
+		setAssignEnable()
+	)
+	else ( -- disable controls if no libraries were loaded
+		changePreview logoPath
+		updateCategoryDropdown()
+		updateMaterialDropdown()
+		DotNetButton.Enabled = false
+		DotNetButton2.Enabled = false
+		dnButtonUV.Enabled = false
+		DotNetPicBox.Enabled = false
+		DotNetFileMenu.Enabled = false
+	)
+	dnSettingsWindow.Close()
+)
+fn cancelSettingsClick sender arg = (
+	dnSettingsWindow.DialogResult == dnSettingsWindow.DialogResult.Cancel
+	
+	dnSettingsWindow.Close()
+)
+fn settingsClosing sender arg = (
+	if dnSettingsWindow.DialogResult == dnSettingsWindow.DialogResult.Cancel then (
+		dnTexMapBox.Text = texMapDir
+		dnRenderFileBox.Text = renderFile
+		dnLibraryRepBox.Text = materialRoot
+	)
 )
 -- this function must be global so it can be registered as a callback
 global selectionChanged
@@ -478,6 +560,11 @@ dotNet.addEventHandler dnAbout "Click" aboutClick
 dotNet.addEventHandler dnButtonUV "Click" applyUVsClick
 
 dotNet.addEventHandler dnApplySettings "Click" applySettingsClick
+dotNet.addEventHandler dnCancelSettings "Click" cancelSettingsClick
+dotNet.addEventHandler dnSettingsWindow "FormClosing" settingsClosing
+dotNet.addEventHandler dnBrowseTex "Click" browseTexClick
+dotNet.addEventHandler dnBrowseRender "Click" browseRenderClick
+dotNet.addEventHandler dnBrowseLibrary "Click" browseLibraryClick
 
 callbacks.removeScripts id:#mlmlSelection
 -- make sure the callback function is global!
