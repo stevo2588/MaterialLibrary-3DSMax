@@ -100,16 +100,56 @@ fn hitTest = (
 	hitObject 
 )
 
+-- Recursively get materials within a material
 fn getAllSubMtls mtl = (
 	allSubMtls = #()
-	--getNumSubMtls <material> 
-	--getSubMtl <material> <index> 
+	num = getNumSubMtls mtl
+	for i=1 to num do (
+		subMtl = getSubMtl mtl i
+		if subMtl != undefined do (
+			append allSubMtls subMtl
+			join allSubMtls (getAllSubMtls subMtl)
+		)
+	)
+	allSubMtls
 )
 
-fn getAllSubTexMaps mtl = (
+-- Recursively get texture maps within a material
+fn getAllSubTexMaps mtl_Tex = (
 	allSubTexMaps = #()
-	--getNumSubTexmaps (<material> | <texture>)
-	--getSubTexmap (<material> | <texture>) <index> 
+	num = getNumSubTexmaps mtl_Tex
+	for i=1 to num do (
+		subTex = getSubTexmap mtl_Tex i
+		if subTex != undefined do (
+			append allSubTexMaps subTex
+			join allSubTexMaps (getAllSubTexMaps subTex)
+		)
+	)
+	allSubTexMaps
+)
+
+-- Recursively get all texture maps within all materials within a material
+fn getAllTexInsideMtl mtl = (
+	allTex = #()
+	allMtls = join #(mtl) (getAllSubMtls mtl)
+	for m in allMtls do (
+		join allTex (getAllSubTexMaps m)
+	)
+	allTex
+)
+
+fn checkMaterialAssets mtl = (
+	allTex = getAllTexInsideMtl mtl
+	correctPath = true
+	for t in allTex do (
+		if (classOf t) == Bitmaptexture do (
+			if not (matchPattern (getFilenamePath t.filename) pattern:(texMapDir+"\\*") ignoreCase:true) do (
+				correctPath = false
+				break
+			)
+		)
+	)
+	correctPath
 )
 
 -------------------------------- DotNet Form Components ------------------------------
@@ -408,42 +448,46 @@ fn applyUVsClick sender arg = (
 )
 fn addMaterialClick sender arg = (
 	if (queryBox "You are about to add the selected material in the Material Editor to the current library. Proceed?" title:"Add Material") do (
-		if (texMapDir == "") do ()
-		---------------------- add material to temp library so the other max instance can get it -------------
-		thecopypastedir = (systemTools.getEnvVariable "TEMP")
-		thecopypastefile = "materialClipboardLibrary.mat"
-		thecopypastestring = thecopypastedir + "\\" + thecopypastefile
-
-		pastelib = loadTempMaterialLibrary thecopypastestring -- attempt to load library
-		if pastelib == undefined then (pastelib = materialLibrary meditMaterials[activeMeditSlot]) -- if library doesn't exist yet, create it
-		else pastelib[1] = meditMaterials[activeMeditSlot]
-		saveTempMaterialLibrary pastelib thecopypastestring
+		correctAssets = checkMaterialAssets meditMaterials[activeMeditSlot]
+		print correctAssets
 		
-		------------------- add material to the correct library -------------------------------
-		append matLibs[matCategory.SelectedIndex+1] meditMaterials[activeMeditSlot]
-		saveTempMaterialLibrary matLibs[matCategory.SelectedIndex+1] matLibFilenames[matCategory.SelectedIndex+1]
-		
-		----------------------- open new instance of max ------------------------------------
-		startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms"
-		openMaxString = "Start \"StartMax\" "+"\""+(getDir #maxRoot)+"3dsmax.exe\" -q -silent -mip"
-		maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
-		HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+"\""+renderFile+"\"")
-		
-		------------------------ create temp communication file ---------------------------
-		createFile communicatorFile
-		fs = openFile communicatorFile mode:"w+"
-		format "unknown" to:fs
-		flush fs; close fs
-		
-		------------ begin checking temp communicator file for when the render finishes -------------
-		progressThread = dotnetobject "CSharpUtilities.SynchronizingBackgroundWorker"
-		dotNet.addEventHandler progressThread "DoWork" checkAndDisplayProgress
-		progressThread.RunWorkerAsync()
-		
-		----------------- reload libraries ----------------------
-		loadLibraries()
-		--categorySelect undefined undefined -- reload chooseMaterial dropdown
-		updateMaterialDropdown()
+		if correctAssets or (queryBox ("This material contains assets not located in "+texMapDir+". Are you sure you want to add it to the library?") title:"Add Material") do (
+			---------------------- add material to temp library so the other max instance can get it -------------
+			thecopypastedir = (systemTools.getEnvVariable "TEMP")
+			thecopypastefile = "materialClipboardLibrary.mat"
+			thecopypastestring = thecopypastedir + "\\" + thecopypastefile
+			
+			pastelib = loadTempMaterialLibrary thecopypastestring -- attempt to load library
+			if pastelib == undefined then (pastelib = materialLibrary meditMaterials[activeMeditSlot]) -- if library doesn't exist yet, create it
+			else pastelib[1] = meditMaterials[activeMeditSlot]
+			saveTempMaterialLibrary pastelib thecopypastestring
+			
+			------------------- add material to the correct library -------------------------------
+			append matLibs[matCategory.SelectedIndex+1] meditMaterials[activeMeditSlot]
+			saveTempMaterialLibrary matLibs[matCategory.SelectedIndex+1] matLibFilenames[matCategory.SelectedIndex+1]
+			
+			----------------------- open new instance of max ------------------------------------
+			startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms"
+			openMaxString = "Start \"StartMax\" "+"\""+(getDir #maxRoot)+"3dsmax.exe\" -q -silent -mip"
+			maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
+			HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+"\""+renderFile+"\"")
+			
+			------------------------ create temp communication file ---------------------------
+			createFile communicatorFile
+			fs = openFile communicatorFile mode:"w+"
+			format "unknown" to:fs
+			flush fs; close fs
+			
+			------------ begin checking temp communicator file for when the render finishes -------------
+			progressThread = dotnetobject "CSharpUtilities.SynchronizingBackgroundWorker"
+			dotNet.addEventHandler progressThread "DoWork" checkAndDisplayProgress
+			progressThread.RunWorkerAsync()
+			
+			----------------- reload libraries ----------------------
+			loadLibraries()
+			--categorySelect undefined undefined -- reload chooseMaterial dropdown
+			updateMaterialDropdown()
+		)
 	)
 )
 fn deleteMaterialClick sender arg = (
