@@ -167,12 +167,14 @@ local DotNetHelpMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "He
 local dnAddMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add Material"
 local dnDelMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Delete Material"
 local dnAddUVs = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add UVs"
+local dnDeleteUVs = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Delete UVs"
 local dnConfigure = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Configure"
 local dnAbout = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "About"
 DotNetMenu.MdiWindowListItem = DotNetFileMenu
 DotNetFileMenu.DropDownItems.Add dnAddMaterial
 DotNetFileMenu.DropDownItems.Add dnDelMaterial
 DotNetFileMenu.DropDownItems.Add dnAddUVs
+DotNetFileMenu.DropDownItems.Add dnDeleteUVs
 DotNetSettingsMenu.DropDownItems.Add dnConfigure
 DotNetHelpMenu.DropDownItems.Add dnAbout
 DotNetMenu.Items.AddRange #(DotNetFileMenu,DotNetSettingsMenu,DotNetHelpMenu)
@@ -307,7 +309,7 @@ fn setUVEnable = (
 	print "uvenable called"
 	-- enable/disable buttons accordingly
 	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
-	if (not (doesFileExist UVFile)) then (dnButtonUV.enabled = False)
+	if (not (doesFileExist UVFile)) or ($ == undefined) then (dnButtonUV.enabled = False)
 	else (dnButtonUV.enabled = True)
 )
 fn setAssignEnable = (
@@ -316,8 +318,13 @@ fn setAssignEnable = (
 	else (DotNetButton2.enabled = True)
 )
 fn setAddUVsEnable = (
-	if $ == undefined then (dnAddUVs.enabled = False)
+	if (selection.count != 1) or ($.modifiers.count < 1) then (dnAddUVs.enabled = False) --TODO: needs to check modifier type as well
 	else (dnAddUVs.enabled = True)
+)
+fn setDeleteUVsEnable = (
+	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
+	if (not (doesFileExist UVFile)) then (dnDeleteUVs.enabled = False)
+	else (dnDeleteUVs.enabled = True)
 )
 
 ------------------------------ Event Handlers ---------------------------------------
@@ -339,6 +346,7 @@ fn formLoad sender arg = (
 		setUVEnable()
 		setAssignEnable()
 		setAddUVsEnable()
+		setDeleteUVsEnable()
 	)
 	else ( -- disable controls if no libraries were loaded
 		DotNetButton.Enabled = false
@@ -363,6 +371,7 @@ fn categorySelect sender arg = (
 		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
 		changePreview imageToLoad
 		setUVEnable()
+		setDeleteUVsEnable()
 	)
 )
 fn materialSelect sender arg = (
@@ -371,6 +380,7 @@ fn materialSelect sender arg = (
 		imageToLoad = bitmapRoot+"\\"+chooseMaterial.SelectedItem+".jpg"
 		changePreview imageToLoad
 		setUVEnable()
+		setDeleteUVsEnable()
 	)
 )
 fn msDown sender arg = (
@@ -520,14 +530,52 @@ fn addUVsClick sender arg = (
 		UVInfo = openFile UVFile mode:"w+"
 		
 		for m in $.modifiers do (
-			case m of (
-				UVWMap: print "UVWMap"
-				VRayDisplacementMod: print "VRayDisplacementMod"
+			print (m as string)
+			case (classOf m) of (
+				Uvwmap: (
+					format "#UVWMap\n" to:UVInfo
+					format "\tType>" to:UVInfo
+					mtype = case m.maptype of (
+						0: "Planar"
+						1: "Cylindrical"
+						2: "Spherical"
+						3: "Shrink Wrap"
+						4: "Box"
+						5: "Face"
+						6: "XYZ to UVW"
+					)
+					format (mtype+"\n") to:UVInfo
+					format ("\tLength>"+(m.length as string)+"\n") to:UVInfo
+					format ("\tWidth>"+(m.width as string)+"\n") to:UVInfo
+					format ("\tMapChan>"+(m.mapChannel as string)+"\n") to:UVInfo
+				)
+				VRayDisplacementMod: (
+					format "#VRayDisplacementMod\n" to:UVInfo
+					format "\tType>" to:UVInfo
+					mtype = case m.type of (
+						0: "2D mapping (landscape)"
+						1: "3D mapping"
+						2: "Subdivision"
+					)
+					format (mtype+"\n") to:UVInfo
+					format ("\tTexChan>"+(m.texmapChannel as string)+"\n") to:UVInfo
+					if m.texmap != undefined do (
+						format ("\tTexMap>"+(m.texmap.filename as string)+"\n") to:UVInfo
+					)
+				)
 			)
 		)
 		
 		flush UVInfo; close UVInfo
+		setDeleteUVsEnable()
+		setUVEnable()
 	)
+)
+fn deleteUVsClick sender arg = (
+	UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
+	deleteFile UVFile
+	setUVEnable()
+	setDeleteUVsEnable()
 )
 fn aboutClick sender arg = (
 	(dotNetClass "System.Windows.Forms.MessageBox").Show("\"Jeffrey\", the Material Library for use by Corgan MediaLab")
@@ -588,6 +636,7 @@ fn applySettingsClick sender arg = (
 		setUVEnable()
 		setAssignEnable()
 		setAddUVsEnable()
+		setDeleteUVsEnable()
 	)
 	else ( -- disable controls if no libraries were loaded
 		changePreview logoPath
@@ -624,6 +673,7 @@ fn onResizeForm sender arg = (
 global selectionChanged
 fn selectionChanged = (
 	setAssignEnable()
+	setUVEnable()
 	setAddUVsEnable()
 )
 
@@ -646,6 +696,7 @@ dotNet.addEventHandler DotNetButton2 "Click" assignSelectionClick
 dotNet.addEventHandler dnAddMaterial "Click" addMaterialClick
 dotNet.addEventHandler dnDelMaterial "Click" deleteMaterialClick
 dotNet.addEventHandler dnAddUVs "Click" addUVsClick
+dotNet.addEventHandler dnDeleteUVs "Click" deleteUVsClick
 dotNet.addEventHandler dnConfigure "Click" configClick
 dotNet.addEventHandler dnAbout "Click" aboutClick
 dotNet.addEventHandler dnButtonUV "Click" applyUVsClick
