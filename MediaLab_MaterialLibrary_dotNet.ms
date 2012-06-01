@@ -11,6 +11,7 @@
 (
 local configFile = (getFilenamePath (getThisScriptFilename()))+"CONFIG"
 local logoPath = "T:\\logos\\CorganMediaLab_inverted.jpg"
+local iconPath = (getFilenamePath (getThisScriptFilename()))+"mediaLab.ico"
 local communicatorFile = (systemTools.getEnvVariable "TEMP")+"\\"+"MaterialLibrary_communicator.tmp"
 local materialRoot
 local bitmapRoot
@@ -156,6 +157,7 @@ fn checkMaterialAssets mtl = (
 local DotNetForm = DotNetObject "System.Windows.Forms.Form"
 DotNetForm.Text = "Jeffrey"
 DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
+DotNetForm.Icon = (DotNetObject "System.Drawing.Icon" iconPath)
 DotNetForm.TopMost = true
 
 local DotNetMenu = DotNetObject "System.Windows.Forms.MenuStrip"
@@ -164,7 +166,7 @@ local DotNetSettingsMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem"
 local DotNetHelpMenu = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Help"
 local dnAddMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add Material"
 local dnDelMaterial = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Delete Material"
-local dnAddUVs = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add UVs (coming soon)"
+local dnAddUVs = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Add UVs"
 local dnConfigure = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "Configure"
 local dnAbout = DotNetObject "System.Windows.Forms.ToolStripMenuItem" "About"
 DotNetMenu.MdiWindowListItem = DotNetFileMenu
@@ -313,6 +315,10 @@ fn setAssignEnable = (
 	if $ == undefined then (DotNetButton2.enabled = False)
 	else (DotNetButton2.enabled = True)
 )
+fn setAddUVsEnable = (
+	if $ == undefined then (dnAddUVs.enabled = False)
+	else (dnAddUVs.enabled = True)
+)
 
 ------------------------------ Event Handlers ---------------------------------------
 fn formLoad sender arg = (
@@ -332,6 +338,7 @@ fn formLoad sender arg = (
 		
 		setUVEnable()
 		setAssignEnable()
+		setAddUVsEnable()
 	)
 	else ( -- disable controls if no libraries were loaded
 		DotNetButton.Enabled = false
@@ -507,6 +514,21 @@ fn deleteMaterialClick sender arg = (
 		changePreview imageToLoad
 	)
 )
+fn addUVsClick sender arg = (
+	if (selection.count == 1) and ($.modifiers.count > 0) do (
+		UVFile = UVRoot+"\\"+chooseMaterial.SelectedItem+".uvi"
+		UVInfo = openFile UVFile mode:"w+"
+		
+		for m in $.modifiers do (
+			case m of (
+				UVWMap: print "UVWMap"
+				VRayDisplacementMod: print "VRayDisplacementMod"
+			)
+		)
+		
+		flush UVInfo; close UVInfo
+	)
+)
 fn aboutClick sender arg = (
 	(dotNetClass "System.Windows.Forms.MessageBox").Show("\"Jeffrey\", the Material Library for use by Corgan MediaLab")
 )
@@ -565,6 +587,7 @@ fn applySettingsClick sender arg = (
 		DotNetFileMenu.Enabled = true
 		setUVEnable()
 		setAssignEnable()
+		setAddUVsEnable()
 	)
 	else ( -- disable controls if no libraries were loaded
 		changePreview logoPath
@@ -590,10 +613,18 @@ fn settingsClosing sender arg = (
 		dnLibraryRepBox.Text = materialRoot
 	)
 )
+/*fn onPaintForm sender arg = (
+	print "hello"
+	(DotNetClass "System.Windows.Forms.ControlPaint").DrawBorder arg.Graphics DotNetForm.ClientRectangle (DotNetClass "System.Drawing.Color").DarkBlue (DotNetClass "System.Windows.Forms.ButtonBorderStyle").Solid	
+)
+fn onResizeForm sender arg = (
+	DotNetForm.Invalidate()
+)*/
 -- this function must be global so it can be registered as a callback
 global selectionChanged
 fn selectionChanged = (
 	setAssignEnable()
+	setAddUVsEnable()
 )
 
 ------------------------------ Add components to forms -------------------------------
@@ -604,6 +635,8 @@ dnSettingsWindow.Controls.AddRange #(dnTexMapLabel, dnTexMapBox, dnBrowseTex, dn
 dotNet.addEventHandler DotNetForm "load" formLoad
 dotNet.addEventHandler DotNetForm "Shown" formShown
 dotNet.addEventHandler DotNetForm "closed" formClose
+--dotNet.addEventHandler DotNetForm "Paint" onPaintForm
+--dotNet.addEventHandler DotNetForm "Resize" onResizeForm
 dotNet.addEventHandler matCategory "SelectedIndexChanged" categorySelect
 dotNet.addEventHandler chooseMaterial "SelectedIndexChanged" materialSelect
 dotNet.addEventHandler DotNetPicBox "MouseDown" msDown
@@ -612,6 +645,7 @@ dotNet.addEventHandler DotNetButton "Click" assignEditorClick
 dotNet.addEventHandler DotNetButton2 "Click" assignSelectionClick
 dotNet.addEventHandler dnAddMaterial "Click" addMaterialClick
 dotNet.addEventHandler dnDelMaterial "Click" deleteMaterialClick
+dotNet.addEventHandler dnAddUVs "Click" addUVsClick
 dotNet.addEventHandler dnConfigure "Click" configClick
 dotNet.addEventHandler dnAbout "Click" aboutClick
 dotNet.addEventHandler dnButtonUV "Click" applyUVsClick
