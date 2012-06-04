@@ -1,24 +1,30 @@
 /*
-	Corgan MediaLab Material Library v1.2
+	Jeffrey - Corgan MediaLab Material Library v1.2
 	Developed by Stephen Aldriedge
 	
 	Todo:
-	-When user clicks "Add Material" check and make sure all texture maps (if any) are located in "V:\Materials2"
 	-Make macro
-	-Add UV option
 	-Option to choose another render file besides the default
 */
+macroScript MediaLab_MaterialLibrary
+category:"MediaLab Scripts"
+tooltip:"MLab Material Library"
+icon:#("MediaLabButton", 1)
 (
 local configFile = (getFilenamePath (getThisScriptFilename()))+"CONFIG"
 local logoPath = "T:\\logos\\CorganMediaLab_inverted.jpg"
 local iconPath = (getFilenamePath (getThisScriptFilename()))+"mediaLab.ico"
+local enlargePath = (getFilenamePath (getThisScriptFilename()))+"enlarge.png"
+local shrinkPath = (getFilenamePath (getThisScriptFilename()))+"shrink.png"
 local communicatorFile = (systemTools.getEnvVariable "TEMP")+"\\"+"MaterialLibrary_communicator.tmp"
 local materialRoot
 local bitmapRoot
 local UVRoot
 local texMapDir
 local renderFile
-	
+
+local isEnlarged = false
+
 local matLibFilenames
 local categoryNames
 local materialNames
@@ -185,7 +191,7 @@ matCategory.DropDownWidth = 300
 matCategory.Size = (DotNetObject "Drawing.Size" 300 21)
 matCategory.DropDownStyle = (dotNetClass "System.Windows.Forms.ComboBoxStyle").DropDownList
 
-global chooseMaterial = DotNetObject "System.Windows.Forms.ComboBox"
+local chooseMaterial = DotNetObject "System.Windows.Forms.ComboBox"
 chooseMaterial.Location = (DotNetObject "Drawing.Point" 6 53)
 chooseMaterial.DropDownWidth = 300
 chooseMaterial.Size = (DotNetObject "Drawing.Size" 300 21)
@@ -212,6 +218,12 @@ local dnButtonUV = DotNetObject "System.Windows.Forms.Button"
 dnButtonUV.Size = (DotNetObject "Drawing.Size" 68 22)
 dnButtonUV.Text = "Apply UVs"
 dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 385)
+
+local dnButtonEnlarge = DotNetObject "System.Windows.Forms.Button"
+dnButtonEnlarge.Size = (DotNetObject "Drawing.Size" 25 22)
+--dnButtonEnlarge.Text = "Enlarge"
+dnButtonEnlarge.Location = (DotNetObject "Drawing.Point" 282 385)
+dnButtonEnlarge.Image = theImage.FromFile enlargePath
 
 ------------------------------- Settings Window -------------------------------------
 local dnSettingsWindow = DotNetObject "System.Windows.Forms.Form"
@@ -362,6 +374,7 @@ fn formShown sender arg = (
 )
 fn formClose sender arg = (
 	DotNetPicBox.image.dispose()
+	dnButtonEnlarge.Image.dispose()
 	callbacks.removeScripts id:#mlmlSelection
 )
 fn categorySelect sender arg = (
@@ -463,10 +476,54 @@ fn applyUVsClick sender arg = (
 		
 	flush UVInfo; close UVInfo
 )
+fn enlargeClick sender arg = (
+	dnButtonEnlarge.Image.dispose()
+	if isEnlarged then (
+		isEnlarged = false
+		dnButtonEnlarge.Image = theImage.FromFile enlargePath
+		
+		DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
+		matCategory.DropDownWidth = 300
+		matCategory.Size = (DotNetObject "Drawing.Size" 300 21)
+
+		chooseMaterial.DropDownWidth = 300
+		chooseMaterial.Size = (DotNetObject "Drawing.Size" 300 21)
+
+		DotNetPicBox.Size = (DotNetObject "Drawing.Size" 300 300)
+
+		DotNetButton.Location = (DotNetObject "Drawing.Point" 5 385)
+
+		DotNetButton2.Location = (DotNetObject "Drawing.Point" 85 385)
+
+		dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 385)
+
+		dnButtonEnlarge.Location = (DotNetObject "Drawing.Point" 282 385)
+	)
+	else (
+		isEnlarged = true
+		dnButtonEnlarge.Image = theImage.FromFile shrinkPath
+
+		DotNetForm.Size = (DotNetObject "Drawing.Size" 628 750)
+		matCategory.DropDownWidth = 600
+		matCategory.Size = (DotNetObject "Drawing.Size" 600 21)
+
+		chooseMaterial.DropDownWidth = 600
+		chooseMaterial.Size = (DotNetObject "Drawing.Size" 600 21)
+
+		DotNetPicBox.Size = (DotNetObject "Drawing.Size" 600 600)
+
+		DotNetButton.Location = (DotNetObject "Drawing.Point" 5 685)
+
+		DotNetButton2.Location = (DotNetObject "Drawing.Point" 85 685)
+
+		dnButtonUV.Location = (DotNetObject "Drawing.Point" 183 685)
+
+		dnButtonEnlarge.Location = (DotNetObject "Drawing.Point" 582 685)
+	)
+)
 fn addMaterialClick sender arg = (
 	if (queryBox "You are about to add the selected material in the Material Editor to the current library. Proceed?" title:"Add Material") do (
 		correctAssets = checkMaterialAssets meditMaterials[activeMeditSlot]
-		print correctAssets
 		
 		if correctAssets or (queryBox ("This material contains assets not located in "+texMapDir+". Are you sure you want to add it to the library?") title:"Add Material") do (
 			---------------------- add material to temp library so the other max instance can get it -------------
@@ -578,7 +635,7 @@ fn deleteUVsClick sender arg = (
 	setDeleteUVsEnable()
 )
 fn aboutClick sender arg = (
-	(dotNetClass "System.Windows.Forms.MessageBox").Show("\"Jeffrey\", the Material Library for use by Corgan MediaLab")
+	(dotNetClass "System.Windows.Forms.MessageBox").Show("\"Jeffrey\", the Material Library\n\n \xa9 2012 Corgan MediaLab")
 )
 fn configClick sender arg = (
 	dnSettingsWindow.ShowDialog DotNetForm
@@ -678,7 +735,7 @@ fn selectionChanged = (
 )
 
 ------------------------------ Add components to forms -------------------------------
-DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV)
+DotNetForm.Controls.AddRange #(DotNetMenu, matCategory, chooseMaterial, DotNetPicBox, DotNetButton, DotNetButton2, dnButtonUV, dnButtonEnlarge)
 dnSettingsWindow.Controls.AddRange #(dnTexMapLabel, dnTexMapBox, dnBrowseTex, dnRenderFileLabel, dnRenderFileBox, dnBrowseRender, dnLibraryRepLabel, dnLibraryRepBox, dnBrowseLibrary, dnApplySettings, dnCancelSettings)
 
 ---------------------------- Register event handler functions -----------------------
@@ -693,6 +750,7 @@ dotNet.addEventHandler DotNetPicBox "MouseDown" msDown
 dotNet.addEventHandler DotNetPicBox "QueryContinueDrag" qryContinueDrag
 dotNet.addEventHandler DotNetButton "Click" assignEditorClick
 dotNet.addEventHandler DotNetButton2 "Click" assignSelectionClick
+dotNet.addEventHandler dnButtonEnlarge "Click" enlargeClick
 dotNet.addEventHandler dnAddMaterial "Click" addMaterialClick
 dotNet.addEventHandler dnDelMaterial "Click" deleteMaterialClick
 dotNet.addEventHandler dnAddUVs "Click" addUVsClick
