@@ -1,22 +1,29 @@
 /*
-	Jeffrey - Corgan MediaLab Material Library v1.2
+	Jeffrey - Corgan MediaLab Material Library v2.0
 	Developed by Stephen Aldriedge
 	
 	Todo:
-	-Make macro
 	-Option to choose another render file besides the default
 */
-macroScript MediaLab_MaterialLibrary
+/*macroScript MediaLab_MaterialLibrary
 category:"MediaLab Scripts"
 tooltip:"MLab Material Library"
-icon:#("MediaLabButton", 1)
+icon:#("MediaLabButton",1)*/
 (
-local configFile = (getFilenamePath (getThisScriptFilename()))+"CONFIG"
+local assetDirectory
+-- Figure out where your assets are
+if (getFilenamePath (getThisScriptFilename())) == ((getDir #maxRoot)+"UI\\MacroScripts\\") then (
+	assetDirectory = (getDir #maxRoot)+"Scripts\\Jeffrey_MaterialLibrary"
+)
+else (
+	assetDirectory = trimright (getFilenamePath (getThisScriptFilename())) "\\"
+)
+local configFile = assetDirectory+"\\CONFIG"
 local logoPath = "T:\\logos\\CorganMediaLab_inverted.jpg"
-local iconPath = (getFilenamePath (getThisScriptFilename()))+"mediaLab.ico"
-local enlargePath = (getFilenamePath (getThisScriptFilename()))+"enlarge.png"
-local shrinkPath = (getFilenamePath (getThisScriptFilename()))+"shrink.png"
-local communicatorFile = (systemTools.getEnvVariable "TEMP")+"\\"+"MaterialLibrary_communicator.tmp"
+local iconPath = assetDirectory+"\\mediaLab.ico"
+local enlargePath = assetDirectory+"\\enlarge.png"
+local shrinkPath = assetDirectory+"\\shrink.png"
+local communicatorFile = (systemTools.getEnvVariable "TEMP")+"\\MaterialLibrary_communicator.tmp"
 local materialRoot
 local bitmapRoot
 local UVRoot
@@ -483,11 +490,12 @@ fn enlargeClick sender arg = (
 		dnButtonEnlarge.Image = theImage.FromFile enlargePath
 		
 		DotNetForm.Size = (DotNetObject "Drawing.Size" 328 450)
+		
+		matCategory.Width = 300
 		matCategory.DropDownWidth = 300
-		matCategory.Size = (DotNetObject "Drawing.Size" 300 21)
 
+		chooseMaterial.Width = 300
 		chooseMaterial.DropDownWidth = 300
-		chooseMaterial.Size = (DotNetObject "Drawing.Size" 300 21)
 
 		DotNetPicBox.Size = (DotNetObject "Drawing.Size" 300 300)
 
@@ -504,11 +512,12 @@ fn enlargeClick sender arg = (
 		dnButtonEnlarge.Image = theImage.FromFile shrinkPath
 
 		DotNetForm.Size = (DotNetObject "Drawing.Size" 628 750)
+		
+		matCategory.Width = 600
 		matCategory.DropDownWidth = 600
-		matCategory.Size = (DotNetObject "Drawing.Size" 600 21)
 
+		chooseMaterial.Width = 600
 		chooseMaterial.DropDownWidth = 600
-		chooseMaterial.Size = (DotNetObject "Drawing.Size" 600 21)
 
 		DotNetPicBox.Size = (DotNetObject "Drawing.Size" 600 600)
 
@@ -541,7 +550,7 @@ fn addMaterialClick sender arg = (
 			saveTempMaterialLibrary matLibs[matCategory.SelectedIndex+1] matLibFilenames[matCategory.SelectedIndex+1]
 			
 			----------------------- open new instance of max ------------------------------------
-			startupScriptPath = (getFilenamePath (getThisScriptFilename()))+"MediaLab_MaterialLibrary_renderScene.ms"
+			startupScriptPath = assetDirectory+"\\MediaLab_MaterialLibrary_renderScene.ms"
 			openMaxString = "Start \"StartMax\" "+"\""+(getDir #maxRoot)+"3dsmax.exe\" -q -silent -mip"
 			maxScriptString = "-U MAXScript \""+startupScriptPath+"\""
 			HiddenDOSCommand (openMaxString+" "+maxScriptString+" "+"\""+renderFile+"\"")
